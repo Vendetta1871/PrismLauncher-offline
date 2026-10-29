@@ -39,6 +39,7 @@
 #include "launch/steps/PrintServers.h"
 #include "minecraft/auth/AccountData.h"
 #include "minecraft/auth/AccountList.h"
+#include "minecraft/auth/MinecraftAccount.h"
 
 #include "net/NetUtils.h"
 #include "ui/InstanceWindow.h"
@@ -92,120 +93,43 @@ void LaunchController::decideAccount()
         m_accountToUse = accounts->at(instanceAccountIndex);
     }
 
-    if (!accounts->anyAccountIsValid()) {
-        // Tell the user they need to log in at least one account in order to play.
-        auto reply = CustomMessageBox::selectable(m_parentWidget, tr("No Accounts"),
-                                                  tr("In order to play Minecraft, you must have at least one Microsoft "
-                                                     "account which owns Minecraft logged in. "
-                                                     "Would you like to open the account manager to add an account now?"),
-                                                  QMessageBox::Information, QMessageBox::Yes | QMessageBox::No)
-                         ->exec();
+    if (!m_accountToUse) {
+        // Check if there are any accounts at all
+        if (accounts->count() == 0) {
+            // No accounts exist, offer to create an offline account directly
+            ChooseOfflineNameDialog dialog(tr("No account found. Please enter a username to create an offline account."), m_parentWidget);
+            dialog.setWindowTitle(tr("Create Offline Account"));
+            if (dialog.exec() == QDialog::Accepted) {
+                const MinecraftAccountPtr account = MinecraftAccount::createOffline(dialog.getUsername());
+                if (account) {
+                    account->login()->start();  // The task will complete here.
+                    accounts->addAccount(account);
+                    m_accountToUse = account;
+                    accounts->setDefaultAccount(account);
+                }
+            }
+        } else {
+            // Accounts exist, show profile selection dialog
+            ProfileSelectDialog selectDialog(tr("Which account would you like to use?"), ProfileSelectDialog::GlobalDefaultCheckbox,
+                                             m_parentWidget);
 
-        if (reply == QMessageBox::Yes) {
-            // Open the account manager.
-            APPLICATION->ShowGlobalSettings(m_parentWidget, "accounts");
-        } else if (reply == QMessageBox::No) {
-            // Do not open "profile select" dialog.
-            return;
-        }
-    }
+            selectDialog.exec();
 
-    if (!m_accountToUse && accounts->anyAccountIsValid()) {
-        // If no default account is set, ask the user which one to use.
-        ProfileSelectDialog selectDialog(tr("Which account would you like to use?"), ProfileSelectDialog::GlobalDefaultCheckbox,
-                                         m_parentWidget);
+            // Launch the instance with the selected account.
+            m_accountToUse = selectDialog.selectedAccount();
 
-        selectDialog.exec();
-
-        // Launch the instance with the selected account.
-        m_accountToUse = selectDialog.selectedAccount();
-
-        // If the user said to use the account as default, do that.
-        if (selectDialog.useAsGlobalDefault() && m_accountToUse) {
-            accounts->setDefaultAccount(m_accountToUse);
+            // If the user said to use the account as default, do that.
+            if (selectDialog.useAsGlobalDefault() && m_accountToUse) {
+                accounts->setDefaultAccount(m_accountToUse);
+            }
         }
     }
 }
 
 LaunchDecision LaunchController::decideLaunchMode()
 {
-    if (!m_accountToUse || m_wantedLaunchMode == LaunchMode::Demo) {
-        m_actualLaunchMode = LaunchMode::Demo;
-        return LaunchDecision::Continue;
-    }
-
-    const auto* accounts = APPLICATION->accounts();
-    MinecraftAccountPtr accountToCheck = nullptr;
-
-    if (m_accountToUse->accountType() != AccountType::Offline) {
-        accountToCheck = m_accountToUse->ownsMinecraft() ? m_accountToUse : nullptr;
-    } else if (const auto defaultAccount = accounts->defaultAccount(); defaultAccount && defaultAccount->ownsMinecraft()) {
-        accountToCheck = defaultAccount;
-    } else {
-        for (int i = 0; i < accounts->count(); i++) {
-            if (const auto account = accounts->at(i); account->ownsMinecraft()) {
-                accountToCheck = account;
-                break;
-            }
-        }
-    }
-
-    if (!accountToCheck) {
-        m_actualLaunchMode = LaunchMode::Demo;
-        return LaunchDecision::Continue;
-    }
-
-    auto state = accountToCheck->accountState();
-    const bool needsRefresh =
-        m_wantedLaunchMode == LaunchMode::Normal && (state == AccountState::Offline || accountToCheck->shouldRefresh());
-    if (state == AccountState::Unchecked || state == AccountState::Errored || needsRefresh) {
-        accountToCheck->refresh();
-        state = AccountState::Working;
-    }
-
-    if (state == AccountState::Working) {
-        // refresh is in progress, we need to wait for it to finish to proceed.
-        ProgressDialog progDialog(m_parentWidget);
-        progDialog.setSkipButton(true, tr("Abort"));
-
-        // TODO: this relies on tasks' synchronous signal dispatching nature
-        // TODO: meaning currentTask can't complete and become null while this code is running
-        // TODO: this code will produce a race condition when tasks become fully async
-        auto task = accountToCheck->currentTask();
-        progDialog.execWithTask(task.get());
-
-        if (task->getState() == State::AbortedByUser) {
-            return LaunchDecision::Abort;
-        }
-
-        state = accountToCheck->accountState();
-    }
-
-    QString reauthReason;
-    switch (state) {
-        case AccountState::Errored:
-            reauthReason = tr("An error occurred while refreshing '%1'").arg(accountToCheck->profileName());
-            break;
-        case AccountState::Expired:
-            reauthReason = tr("'%1' has expired and needs to be reauthenticated").arg(accountToCheck->profileName());
-            break;
-        case AccountState::Disabled:
-            reauthReason = tr("The launcher's client identification has changed");
-            break;
-        case AccountState::Gone:
-            reauthReason = tr("'%1' no longer exists on the servers").arg(accountToCheck->profileName());
-            break;
-        default:
-            m_actualLaunchMode =
-                state == AccountState::Online && m_wantedLaunchMode == LaunchMode::Normal ? LaunchMode::Normal : LaunchMode::Offline;
-            return LaunchDecision::Continue;  // All good to go
-    }
-
-    if (reauthenticateAccount(accountToCheck, reauthReason)) {
-        return LaunchDecision::Undecided;
-    }
-
-    return LaunchDecision::Abort;
+    m_actualLaunchMode = m_wantedLaunchMode;
+    return LaunchDecision::Continue;
 }
 
 bool LaunchController::askPlayDemo() const
@@ -278,6 +202,12 @@ QString LaunchController::askOfflineName(const QString& playerName, bool* ok)
 void LaunchController::login()
 {
     decideAccount();
+
+    // Check if an account was selected after decideAccount()
+    if (!m_accountToUse) {
+        emitAborted();
+        return;
+    }
 
     LaunchDecision decision = decideLaunchMode();
     while (decision == LaunchDecision::Undecided) {
