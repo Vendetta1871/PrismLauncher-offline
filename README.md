@@ -1,114 +1,60 @@
-<p align="center">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="/program_info/org.prismlauncher.PrismLauncher.logo-darkmode.svg">
-  <source media="(prefers-color-scheme: light)" srcset="/program_info/org.prismlauncher.PrismLauncher.logo.svg">
-  <img alt="Prism Launcher" src="/program_info/org.prismlauncher.PrismLauncher.logo.svg" width="40%">
-</picture>
-</p>
+# Prism Launcher (Offline)
 
-<p align="center">
-  Prism Launcher is a custom launcher for Minecraft that allows you to easily manage multiple installations of Minecraft at once.<br />
-  <br />This is a <b>fork</b> of the MultiMC Launcher and is <b>not</b> endorsed by it.
-</p>
+A fork of [Prism Launcher](https://github.com/PrismLauncher/PrismLauncher) with
+[offline (cracked) account](https://wiki.vg/Mojang_API#Offline) support enabled.
+It exists to feed the AUR packages `prismlauncher-offline-git` (built from this
+branch) and `prismlauncher-offline-bin` (installed from the GitHub releases of
+this repository).
 
-## Installation
+The upstream project stopped being mirrored by the previously used
+`Diegiwg/PrismLauncher-Cracked` fork in July 2026, so the offline-account
+changes are now maintained here, rebased onto upstream releases as they appear.
 
-<a href="https://repology.org/project/prismlauncher/versions">
-    <img src="https://repology.org/badge/vertical-allrepos/prismlauncher.svg" alt="Packaging status" align="right">
-</a>
+## What is changed compared to upstream
 
-- All downloads and instructions for Prism Launcher can be found on our [Website](https://prismlauncher.org/download).
-- Last build status can be found in the [GitHub Actions](https://github.com/PrismLauncher/PrismLauncher/actions) tab (this also includes the pull requests status).
+- `LaunchController`: no "at least one account must own Minecraft" gate; when
+  launching without any account, an offline account is offered to be created
+  right away; the requested launch mode is used as-is (no forced demo mode).
+- `MinecraftAccount::ownsMinecraft()` and `AccountList::anyAccountIsValid()`
+  always report a usable account.
+- The "Add Microsoft" button is disabled; the accounts page points at
+  "Add Offline".
+- `MinecraftInstance::javaArguments()` points Minecraft's session/auth/services
+  API hosts at `nope.invalid`, so the game never talks to Mojang auth.
+- Updater / bug-tracker URLs point at this repository; upstream community
+  (Matrix/Discord/Reddit) links are removed, since upstream does not support
+  offline-account builds.
+- `PRISMLAUNCHER_VERSION` environment variable can stamp the version at
+  configure time (used by the release workflow).
+- `release.yml` builds Linux x86_64 assets only and publishes the release
+  automatically; the build deliberately omits `prismupdater` (updates are
+  delivered by the AUR packages).
 
-### Development Builds
+Everything else — branding, data locations, meta files — is untouched upstream
+behavior: the launcher still uses `~/.local/share/PrismLauncher` and installs
+itself under the canonical `org.prismlauncher.PrismLauncher` names.
 
-Please understand that these builds are not intended for most users. There may be bugs, and other instabilities. You have been warned.
+## Versioning
 
-There are development builds available through:
+Upstream version `X.Y.Z` becomes `X.Y.Z.B` here, where `B` is this fork's build
+counter, reset to `1` whenever upstream releases a new version. The first
+release of this fork is `11.1.1.1` (upstream 11.1.1 + offline accounts).
 
-- [GitHub Actions](https://github.com/PrismLauncher/PrismLauncher/actions) (includes builds from pull requests opened by contributors)
-- [nightly.link](https://prismlauncher.org/nightly) (this will always point only to the latest version of develop)
+## Making a release
 
-These have debug information in the binaries, so their file sizes are relatively larger.
+1. Merge the desired upstream tag into `main` (or just commit the change).
+2. Bump `Launcher_VERSION_*` in `CMakeLists.txt` if needed.
+3. `git tag X.Y.Z.B && git push origin X.Y.Z.B`.
+4. The `Build and publish Linux release` workflow builds the AppImage and the
+   portable tarball and publishes the release.
 
-Prebuilt Development builds are provided for **Linux**, **Windows** and **macOS**.
+## Syncing with upstream
 
-On Linux, we also offer our own [Flatpak nightly repository](https://github.com/PrismLauncher/flatpak). Most software centers are able to install it by opening [this link](https://flatpak.prismlauncher.org/prismlauncher-nightly.flatpakref).
+`main` is based on upstream tag `11.1.1`. To update:
 
-## Community & Support
+```
+git fetch upstream --tags
+git merge <new-upstream-tag>   # resolve, bump version, tag, push
+```
 
-Feel free to create a GitHub issue if you find a bug or want to suggest a new feature. We have multiple community spaces where other community members can help you:
-
-- **Our Discord server:**
-
-[![Prism Launcher Discord server](https://discordapp.com/api/guilds/1031648380885147709/widget.png?style=banner3)](https://prismlauncher.org/discord)
-
-- **Our Matrix space:**
-
-[![Prism Launcher Space](https://img.shields.io/matrix/prismlauncher:matrix.org?style=for-the-badge&label=Matrix%20Space&logo=matrix&color=purple)](https://prismlauncher.org/matrix)
-
-- **Our Subreddit:**
-
-[![r/PrismLauncher](https://img.shields.io/reddit/subreddit-subscribers/prismlauncher?style=for-the-badge&logo=reddit)](https://prismlauncher.org/reddit)
-
-## Translations
-
-The translation effort for Prism Launcher is hosted on [Weblate](https://hosted.weblate.org/projects/prismlauncher/launcher/) and information about translating Prism Launcher is available at <https://github.com/PrismLauncher/Translations>.
-
-## Building
-
-If you want to build Prism Launcher yourself, check the [build instructions](https://prismlauncher.org/wiki/development/build-instructions).
-
-## Sponsors & Partners
-
-We thank all the wonderful backers over at Open Collective! Support Prism Launcher by [becoming a backer](https://opencollective.com/prismlauncher).
-
-[![OpenCollective Backers](https://opencollective.com/prismlauncher/backers.svg?width=890&limit=1000)](https://opencollective.com/prismlauncher#backers)
-
-Thanks to JetBrains for providing us a few licenses for all their products, as part of their [Open Source program](https://www.jetbrains.com/opensource/).
-
-<a href="https://jb.gg/OpenSource">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://www.jetbrains.com/company/brand/img/logo_jb_dos_4.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg">
-  <img alt="JetBrains logo" src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg" width="40%">
-</picture>
-</a>
-
-Thanks to Weblate for hosting our translation efforts.
-
-<a href="https://hosted.weblate.org/engage/prismlauncher/">
-<img src="https://hosted.weblate.org/widgets/prismlauncher/-/open-graph.png" alt="Translation status" width="300" />
-</a>
-
-Thanks to Netlify for providing us their excellent web services, as part of their [Open Source program](https://www.netlify.com/open-source/).
-
-<a href="https://www.netlify.com"> <img src="https://www.netlify.com/v3/img/components/netlify-color-accent.svg" alt="Deploys by Netlify" /> </a>
-
-Thanks to the awesome people over at [MacStadium](https://www.macstadium.com/), for providing M1-Macs for development purposes!
-
-<a href="https://www.macstadium.com"><img src="https://uploads-ssl.webflow.com/5ac3c046c82724970fc60918/5c019d917bba312af7553b49_MacStadium-developerlogo.png" alt="Powered by MacStadium" width="300"></a>
-
-## Forking/Redistributing/Custom builds policy
-
-You are free to fork, redistribute and provide custom builds as long as you follow the terms of the [license](LICENSE) (this is a legal responsibility), and if you made code changes rather than just packaging a custom build, please do the following as a basic courtesy:
-
-- Make it clear that your fork is not Prism Launcher and is not endorsed by or affiliated with the Prism Launcher project (<https://prismlauncher.org>).
-- Go through [CMakeLists.txt](CMakeLists.txt) and change Prism Launcher's API keys to your own or set them to empty strings (`""`) to disable them (this way the program will still compile but the functionality requiring those keys will be disabled).
-
-If you have any questions or want any clarification on the above conditions please make an issue and ask us.
-
-If you are just building Prism Launcher for your distribution, please make sure to set the `Launcher_BUILD_PLATFORM` to a slug representing your distribution. Examples are `archlinux`, `fedora` and `nixpkgs`.
-
-Note that if you build this software without removing the provided API keys in [CMakeLists.txt](CMakeLists.txt) you are accepting the following terms and conditions:
-
-- [Microsoft Identity Platform Terms of Use](https://docs.microsoft.com/en-us/legal/microsoft-identity-platform/terms-of-use)
-- [CurseForge 3rd Party API Terms and Conditions](https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions)
-
-If you do not agree with these terms and conditions, then remove the associated API keys from the [CMakeLists.txt](CMakeLists.txt) file by setting them to an empty string (`""`).
-
-## License [![https://github.com/PrismLauncher/PrismLauncher/blob/develop/LICENSE](https://img.shields.io/github/license/PrismLauncher/PrismLauncher?label=License&logo=gnu&color=C4282D)](LICENSE)
-
-All launcher code is available under the GPL-3.0-only license.
-
-The logo and related assets are under the CC BY-SA 4.0 license.
+The `upstream` remote points at `https://github.com/PrismLauncher/PrismLauncher`.
