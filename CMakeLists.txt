@@ -179,19 +179,37 @@ set(Launcher_LOGIN_CALLBACK_URL "https://prismlauncher.org/successful-login" CAC
 set(Launcher_LEGACY_FMLLIBS_BASE_URL "https://files.prismlauncher.org/fmllibs/" CACHE STRING "URL for legacy (<=1.5.2) FML Libraries.")
 
 ######## Set version numbers ########
+# This fork tracks upstream as X.Y.Z and adds its own build counter as the fourth component.
 set(Launcher_VERSION_MAJOR 11)
 set(Launcher_VERSION_MINOR 1)
 set(Launcher_VERSION_PATCH 1)
+set(Launcher_VERSION_BUILD 1)
 
-set(Launcher_VERSION_NAME "${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}.${Launcher_VERSION_PATCH}")
-set(Launcher_VERSION_NAME4 "${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}.${Launcher_VERSION_PATCH}.0")
-set(Launcher_VERSION_NAME4_COMMA "${Launcher_VERSION_MAJOR},${Launcher_VERSION_MINOR},${Launcher_VERSION_PATCH},0")
+# Allow CI (and packagers) to stamp the version from the environment, e.g. PRISMLAUNCHER_VERSION=11.1.1.1
+if(DEFINED ENV{PRISMLAUNCHER_VERSION} AND NOT "$ENV{PRISMLAUNCHER_VERSION}" STREQUAL "")
+    set(Launcher_VERSION_OVERRIDE "$ENV{PRISMLAUNCHER_VERSION}")
+    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)(\\.([0-9]+))?$" _Launcher_VERSION_MATCH "${Launcher_VERSION_OVERRIDE}")
+    if(NOT _Launcher_VERSION_MATCH)
+        message(FATAL_ERROR "PRISMLAUNCHER_VERSION must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH.BUILD")
+    endif()
+
+    set(Launcher_VERSION_MAJOR "${CMAKE_MATCH_1}")
+    set(Launcher_VERSION_MINOR "${CMAKE_MATCH_2}")
+    set(Launcher_VERSION_PATCH "${CMAKE_MATCH_3}")
+    if(CMAKE_MATCH_5)
+        set(Launcher_VERSION_BUILD "${CMAKE_MATCH_5}")
+    endif()
+endif()
+
+set(Launcher_VERSION_NAME "${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}.${Launcher_VERSION_PATCH}-${Launcher_VERSION_BUILD}")
+set(Launcher_VERSION_NAME4 "${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}.${Launcher_VERSION_PATCH}.${Launcher_VERSION_BUILD}")
+set(Launcher_VERSION_NAME4_COMMA "${Launcher_VERSION_MAJOR},${Launcher_VERSION_MINOR},${Launcher_VERSION_PATCH},${Launcher_VERSION_BUILD}")
 
 # Build platform.
 set(Launcher_BUILD_PLATFORM "unknown" CACHE STRING "A short string identifying the platform that this build was built for. Only used to display in the about dialog.")
 
 # Github repo URL with releases for updater
-set(Launcher_UPDATER_GITHUB_REPO "https://github.com/PrismLauncher/PrismLauncher" CACHE STRING "Base github URL for the updater.")
+set(Launcher_UPDATER_GITHUB_REPO "https://github.com/Vendetta1871/PrismLauncher-offline" CACHE STRING "Base github URL for the updater.")
 
 # Name to help updater identify valid artifacts
 set(Launcher_BUILD_ARTIFACT "" CACHE STRING "Artifact name to help the updater identify valid artifacts.")
@@ -203,20 +221,20 @@ set(Launcher_META_URL "https://meta.prismlauncher.org/v1/" CACHE STRING "URL to 
 set(Launcher_IMGUR_CLIENT_ID "5b97b0713fba4a3" CACHE STRING "Client ID you can get from Imgur when you register an application")
 
 # Bug tracker URL
-set(Launcher_BUG_TRACKER_URL "https://github.com/PrismLauncher/PrismLauncher/issues" CACHE STRING "URL for the bug tracker.")
+set(Launcher_BUG_TRACKER_URL "https://github.com/Vendetta1871/PrismLauncher-offline/issues" CACHE STRING "URL for the bug tracker.")
 
 # Translations Platform URL
 set(Launcher_TRANSLATIONS_URL "https://hosted.weblate.org/projects/prismlauncher/launcher/" CACHE STRING "URL for the translations platform.")
 set(Launcher_TRANSLATION_FILES_URL "https://i18n.prismlauncher.org/" CACHE STRING "URL for the translations files.")
 
-# Matrix Space
-set(Launcher_MATRIX_URL "https://prismlauncher.org/matrix" CACHE STRING "URL to the Matrix Space")
+# Matrix Space (upstream community does not support offline-account builds)
+set(Launcher_MATRIX_URL "" CACHE STRING "URL to the Matrix Space")
 
 # Discord URL
-set(Launcher_DISCORD_URL "https://prismlauncher.org/discord" CACHE STRING "URL for the Discord guild.")
+set(Launcher_DISCORD_URL "" CACHE STRING "URL for the Discord guild.")
 
 # Subreddit URL
-set(Launcher_SUBREDDIT_URL "https://prismlauncher.org/reddit" CACHE STRING "URL for the subreddit.")
+set(Launcher_SUBREDDIT_URL "" CACHE STRING "URL for the subreddit.")
 
 # Builds
 set(Launcher_QT_VERSION_MAJOR "6" CACHE STRING "Major Qt version to build against")
@@ -229,8 +247,9 @@ set(Launcher_ENABLE_JAVA_DOWNLOADER_DEFAULT ON)
 # Although we recommend enabling this, we cannot guarantee binary compatibility on
 # differing Linux/BSD/etc distributions. Downstream packagers should be explicitly opt-ing into this
 # feature if they know it will work with their distribution.
+# This fork ships self-contained Linux builds, so the java downloader is enabled by default.
 if(UNIX AND NOT APPLE)
-    set(Launcher_ENABLE_JAVA_DOWNLOADER_DEFAULT OFF)
+    set(Launcher_ENABLE_JAVA_DOWNLOADER_DEFAULT ON)
 endif()
 
 # Java downloader
